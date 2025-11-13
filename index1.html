@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de PDFs con Apps Script</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        .nav-link.active {
+            background-color: #eef2ff;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        .code-tab.active {
+            border-color: #4f46e5;
+            color: #4f46e5;
+            background-color: #f5f5f5;
+        }
+        pre {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            max-height: 60vh;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .step-card {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-gray-800">
+
+    <!-- Chosen Palette: Warm Neutrals (Slate/Gray) with Indigo/Blue Accent -->
+    <!-- Application Structure Plan: Se ha diseñado una SPA con una barra lateral de navegación fija (en escritorio) y un menú hamburguesa (en móvil). Esta estructura se eligió porque el informe de origen es un tutorial secuencial (Paso 1, 2, 3...). Una barra de navegación permite al usuario ver la estructura completa de un vistazo y saltar directamente a la sección que necesita (p.ej., "El Código"), mejorando drásticamente la usabilidad en comparación con un documento lineal. La sección "Código" tiene sub-pestañas para manejar los 3 archivos, lo cual es una interacción clave para organizar el contenido más denso del informe. -->
+    <!-- Visualization & Content Choices: 
+        - Informe: Lista de "Qué Vamos a Construir". Goal: Informar. Viz: Lista HTML estilizada (<ul>) con iconos (&#10004;). Justificación: Claridad.
+        - Informe: Pasos 1 y 3 (Preparación, Implementación). Goal: Instruir/Organizar. Viz: Tarjetas de pasos (HTML/Tailwind) para delinear visualmente cada sub-tarea. Justificación: Divide visualmente el proceso.
+        - Informe: Paso 2 (3 bloques de código). Goal: Organizar/Presentar Código. Viz: Pestañas interactivas (Botones + JS) para mostrar/ocultar los bloques de <pre>. Interacción: Clic en pestañas JS, Clic en botón "Copiar" (JS). Justificación: Evita un desplazamiento vertical masivo y permite al usuario enfocarse en un archivo a la vez. El botón de copiar es una utilidad esencial para un tutorial de código.
+        - Informe: Texto general (Intro, Conclusión). Goal: Informar. Viz: Párrafos de texto estándar (<p>).
+        - No se requirieron gráficos (Chart.js/Plotly) ya que el informe no contiene datos cuantitativos.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        
+        <header class="bg-white shadow-md p-4 flex justify-between items-center md:hidden sticky top-0 z-20">
+            <h1 class="text-xl font-bold text-indigo-700">Generador de PDFs</h1>
+            <button id="menu-toggle" class="text-gray-700 text-3xl">&#9776;</button>
+        </header>
+
+        <aside id="sidebar" class="w-full md:w-72 bg-white shadow-lg p-6 flex-col flex-shrink-0 fixed md:sticky top-0 h-screen z-10 -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+            <h1 class="text-2xl font-bold text-indigo-700 mb-8 hidden md:block">Generador de PDFs</h1>
+            <nav class="flex flex-col space-y-2">
+                <a href="#inicio" class="nav-link text-gray-700 hover:bg-gray-100 p-3 rounded-lg font-medium" data-section="section-inicio">Inicio</a>
+                <a href="#preparacion" class="nav-link text-gray-700 hover:bg-gray-100 p-3 rounded-lg font-medium" data-section="section-preparacion">Paso 1: Preparación</a>
+                <a href="#codigo" class="nav-link text-gray-700 hover:bg-gray-100 p-3 rounded-lg font-medium" data-section="section-codigo">Paso 2: El Código</a>
+                <a href="#implementacion" class="nav-link text-gray-700 hover:bg-gray-100 p-3 rounded-lg font-medium" data-section="section-implementacion">Paso 3: Implementación</a>
+                <a href="#uso" class="nav-link text-gray-700 hover:bg-gray-100 p-3 rounded-lg font-medium" data-section="section-uso">Paso 4: ¡A Usar!</a>
+                <a href="#conclusion" class="nav-link text-gray-700 hover:bg-gray-100 p-3 rounded-lg font-medium" data-section="section-conclusion">Conclusión</a>
+            </nav>
+        </aside>
+
+        <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-0 hidden md:hidden"></div>
+
+        <main class="flex-1 overflow-y-auto p-6 md:p-10">
+
+            <section id="section-inicio" class="content-section">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Cómo Crear un Generador de PDFs con Google Sheets, Docs y Apps Script</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    Esta aplicación interactiva te guía a través del tutorial completo para automatizar la creación de documentos. En lugar de un artículo estático, puedes navegar por cada paso, ver el código en pestañas y copiarlo fácilmente para construir tu propia herramienta.
+                </p>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-4">¿Qué Vamos a Construir?</h3>
+                    <p class="text-gray-600 mb-4">Crearemos una pequeña página web (privada para ti) que:</p>
+                    <ul class="space-y-3">
+                        <li class="flex items-center text-gray-700"><span class="text-green-500 mr-3 text-2xl">&#10004;</span><strong>Lee</strong> los datos de tu Google Sheet.</li>
+                        <li class="flex items-center text-gray-700"><span class="text-green-500 mr-3 text-2xl">&#10004;</span><strong>Muestra</strong> cada fila con un botón de "Generar".</li>
+                        <li class="flex items-center text-gray-700"><span class="text-green-500 mr-3 text-2xl">&#10004;</span><strong>Toma tu plantilla</strong> de Google Docs y combina los datos.</li>
+                        <li class="flex items-center text-gray-700"><span class="text-green-500 mr-3 text-2xl">&#10004;</span><strong>Crea un Google Doc y un PDF</strong> en tu Drive.</li>
+                        <li class="flex items-center text-gray-700"><span class="text-green-500 mr-3 text-2xl">&#10004;</span><strong>Envía el PDF</strong> por correo electrónico.</li>
+                        <li class="flex items-center text-gray-700"><span class="text-green-500 mr-3 text-2xl">&#10004;</span><strong>Guarda el enlace</strong> del nuevo doc en tu Google Sheet.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="section-preparacion" class="content-section hidden">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Paso 1: Prepara tus Archivos en Google Drive</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    Antes de tocar una línea de código, necesitamos organizar nuestros tres archivos fuente en Google Drive. Esta sección detalla cómo configurar tu Hoja de Cálculo, tu Plantilla de Documento y tu Carpeta de destino.
+                </p>
+                
+                <div class="space-y-4">
+                    <div class="step-card">
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-100 py-1 px-3 rounded-full">1. El Google Sheet (Tu Base de Datos)</span>
+                        <p class="text-gray-700 mt-3">Crea una nueva Hoja de Cálculo. En la primera fila, pon tus encabezados (ej. `Nombre`, `Email`, `Nombre del Curso`).</p>
+                        <p class="text-gray-700 mt-2"><strong>Importante:</strong> Añade una columna al final llamada `Link Documento`. Nuestro script la usará para pegar el enlace del archivo generado.</p>
+                    </div>
+
+                    <div class="step-card">
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-100 py-1 px-3 rounded-full">2. El Google Doc (Tu Plantilla)</span>
+                        <p class="text-gray-700 mt-3">Crea un nuevo Documento de Google. Escribe tu texto y usa "placeholders" que coincidan **exactamente** con tus encabezados, pero entre llaves dobles.</p>
+                        <blockquote class="mt-2 border-l-4 border-gray-300 pl-4 italic text-gray-600">
+                            Hola, <strong>{{Nombre}}</strong>. Te confirmamos tu inscripción al curso <strong>{{Nombre del Curso}}</strong>.
+                        </blockquote>
+                    </div>
+
+                    <div class="step-card">
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-100 py-1 px-3 rounded-full">3. La Carpeta de Destino</span>
+                        <p class="text-gray-700 mt-3">Crea una nueva carpeta en tu Google Drive (ej. "Documentos Generados"). Aquí es donde se guardarán todos los nuevos Docs y PDFs.</p>
+                    </div>
+
+                    <div class="step-card bg-yellow-50 border-yellow-200">
+                        <span class="text-xs font-bold text-yellow-800 bg-yellow-100 py-1 px-3 rounded-full">4. Recolecta los IDs</span>
+                        <p class="text-gray-700 mt-3">Necesitamos identificar estos 3 archivos. Ve a cada uno y copia su ID desde la barra de direcciones (URL). ¡Guárdalos!</p>
+                        <ul class="list-disc list-inside mt-2 text-gray-700">
+                            <li><strong>Google Sheet ID:</strong> `.../spreadsheets/d/`<strong>`[ID_AQUÍ]`</strong>`/edit...`</li>
+                            <li><strong>Google Doc ID (Plantilla):</strong> `.../document/d/`<strong>`[ID_AQUÍ]`</strong>`/edit...`</li>
+                            <li><strong>Google Drive ID (Carpeta):</strong> `.../folders/`<strong>`[ID_AQUÍ]`</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section id="section-codigo" class="content-section hidden">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Paso 2: El Código Mágico (Apps Script)</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    Este es el corazón de la aplicación. Crearemos 3 archivos en tu proyecto de Apps Script. Usa las pestañas de abajo para ver el código de cada archivo y el botón <span class="font-mono text-sm bg-gray-200 py-1 px-2 rounded">Copiar</span> para pegarlo fácilmente en tu editor.
+                </p>
+                
+                <div class="mb-4 flex space-x-2 border-b-2 border-gray-200">
+                    <button class="code-tab py-3 px-6 font-medium text-gray-600 border-b-4 border-transparent hover:text-gray-800" data-target="code-gs">Code.gs</button>
+                    <button class="code-tab py-3 px-6 font-medium text-gray-600 border-b-4 border-transparent hover:text-gray-800" data-target="code-index">Index.html</button>
+                    <button class="code-tab py-3 px-6 font-medium text-gray-600 border-b-4 border-transparent hover:text-gray-800" data-target="code-css">stylesheet.html</button>
+                </div>
+
+                <div id="code-gs" class="code-content relative">
+                    <button class="copy-btn absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg text-sm font-medium" data-clipboard-target="code-gs-pre">
+                        Copiar Código
+                    </button>
+                    <pre id="code-gs-pre"><code class="language-javascript">// ---------------------------------------------
+// CONFIGURACIÓN: ¡RELLENA ESTAS VARIABLES!
+// ---------------------------------------------
+const SHEET_ID = 'ID_DE_TU_GOOGLE_SHEET'; // <-- PEGA TU ID
+const SHEET_NAME = 'Hoja 1'; // <-- Cambia esto si tu hoja tiene otro nombre
+const TEMPLATE_ID = 'ID_DE_TU_PLANTILLA_DOC'; // <-- PEGA TU ID
+const FOLDER_ID = 'ID_DE_TU_CARPETA_DRIVE'; // <-- PEGA TU ID
+
+// --- Nombres de las columnas (Deben coincidir exacto) ---
+const EMAIL_COLUMN_NAME = 'Email'; // Columna con el email del destinatario
+const STATUS_COLUMN_NAME = 'Link Documento'; // Columna donde se guardará el link
+// ---------------------------------------------
+
+
+/**
+ * Sirve la aplicación web
+ */
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('Generador de Documentos PDF')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+}
+
+/**
+ * Permite incluir otros archivos HTML (como el CSS)
+ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+/**
+ * Obtiene todos los datos de la hoja de cálculo y los envía al frontend
+ */
+function getSheetData() {
+  try {
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
+    const data = sheet.getDataRange().getValues();
+    return data;
+  } catch (e) {
+    Logger.log(e);
+    return []; // Devuelve array vacío en caso de error
+  }
+}
+
+/**
+ * La función principal que hace todo el trabajo.
+ * Se llama desde el frontend pasando el índice de la fila (base 0).
+ */
+function generateAndSendPdf(rowIndex) {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const dataRow = sheet.getRange(rowIndex + 2, 1, 1, sheet.getLastColumn()).getValues()[0]; // +2 porque las filas son 1-index y la fila 1 es de headers
+
+  // Encontrar los índices de las columnas clave
+  const emailColumnIndex = headers.indexOf(EMAIL_COLUMN_NAME);
+  const statusColumnIndex = headers.indexOf(STATUS_COLUMN_NAME);
+
+  if (emailColumnIndex === -1 || statusColumnIndex === -1) {
+    return `Error: No se encontró la columna "${EMAIL_COLUMN_NAME}" o "${STATUS_COLUMN_NAME}". Revisa la CONFIGURACIÓN.`;
+  }
+
+  const email = dataRow[emailColumnIndex];
+  if (!email) {
+    return 'Error: No hay email en esta fila.';
+  }
+
+  try {
+    // 1. Copiar la plantilla
+    const templateFile = DriveApp.getFileById(TEMPLATE_ID);
+    const destinationFolder = DriveApp.getFolderById(FOLDER_ID);
+    const newFileName = `Documento - ${dataRow[0]} - ${new Date().toLocaleDateString()}`; // Asume que la col 0 es un nombre
+    const newFile = templateFile.makeCopy(newFileName, destinationFolder);
+    const doc = DocumentApp.openById(newFile.getId());
+    const body = doc.getBody();
+
+    // 2. Combinar datos (reemplazar placeholders)
+    headers.forEach((header, index) => {
+      body.replaceText(`{{${header}}}`, dataRow[index]);
+    });
+
+    // 3. Guardar y cerrar el Doc
+    doc.saveAndClose();
+
+    // 4. Crear el PDF
+    const pdfBlob = newFile.getAs('application/pdf').setName(doc.getName() + '.pdf');
+
+    // 5. Enviar el email
+    const subject = `Tu documento personalizado: ${doc.getName()}`;
+    const bodyEmail = 'Hola, \n\nAdjunto encontrarás tu documento personalizado.\n\nSaludos.';
+    
+    MailApp.sendEmail(email, subject, bodyEmail, {
+      attachments: [pdfBlob]
+    });
+
+    // 6. Actualizar la hoja de cálculo con el link del DOC (no del PDF)
+    const docUrl = newFile.getUrl();
+    sheet.getRange(rowIndex + 2, statusColumnIndex + 1).setValue(docUrl); // +1 porque las columnas son 1-index
+
+    return `¡Enviado! Link guardado.`;
+
+  } catch (e) {
+    Logger.log(e);
+    return `Error: ${e.message}`;
+  }
+}
+</code></pre>
+                </div>
+
+                <div id="code-index" class="code-content relative hidden">
+                    <button class="copy-btn absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg text-sm font-medium" data-clipboard-target="code-index-pre">
+                        Copiar Código
+                    </button>
+                    <pre id="code-index-pre"><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;base target="_top"&gt;
+    &lt;?!= include('stylesheet'); ?&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div class="container"&gt;
+      &lt;h1&gt;&lt;span role="img" aria-label="document"&gt;📄&lt;/span&gt; Generador y Enviador de Documentos&lt;/h1&gt;
+      &lt;p&gt;Estos son los datos de tu Google Sheet. Presiona "Generar" para procesar una fila.&lt;/p&gt;
+      &lt;button id="refreshButton" onclick="loadData()"&gt;Refrescar Datos&lt;/button&gt;
+      
+      &lt;div id="status-global" class="status"&gt;&lt;/div&gt;
+      
+      &lt;div class="table-container"&gt;
+        &lt;table id="data-table"&gt;
+          &lt;thead&gt;
+            &lt;!-- Las cabeceras se insertarán aquí --&gt;
+          &lt;/thead&gt;
+          &lt;tbody&gt;
+            &lt;!-- Los datos se insertarán aquí --&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;script&gt;
+      /**
+       * Se ejecuta cuando la página termina de cargar
+       */
+      document.addEventListener('DOMContentLoaded', loadData);
+
+      /**
+       * Llama al backend para obtener los datos de la hoja
+       */
+      function loadData() {
+        showGlobalStatus('Cargando datos...', 'loading');
+        google.script.run.withSuccessHandler(buildTable).withFailureHandler(showError).getSheetData();
+      }
+
+      /**
+       * Recibe los datos (array 2D) y construye la tabla HTML
+       */
+      function buildTable(data) {
+        if (!data || data.length < 2) {
+          showGlobalStatus('No se encontraron datos o solo hay encabezados.', 'error');
+          return;
+        }
+
+        const table = document.getElementById('data-table');
+        const thead = table.querySelector('thead');
+        const tbody = table.querySelector('tbody');
+
+        // Limpiar tabla anterior
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        // Crear encabezados
+        const headers = data.shift(); // Extrae la primera fila (headers)
+        let trHead = document.createElement('tr');
+        headers.forEach(header =&gt; {
+          trHead.innerHTML += `&lt;th&gt;${header}&lt;/th&gt;`;
+        });
+        trHead.innerHTML += '&lt;th&gt;Acción&lt;/th&gt;'; // Columna extra para el botón
+        thead.appendChild(trHead);
+
+        // Crear filas de datos
+        data.forEach((row, index) =&gt; {
+          let trBody = document.createElement('tr');
+          
+          // Añadir celdas de datos
+          row.forEach(cell =&gt; {
+            trBody.innerHTML += `&lt;td&gt;${cell}&lt;/td&gt;`;
+          });
+
+          // Añadir celda de botón y estado
+          trBody.innerHTML += `
+            &lt;td class="action-cell"&gt;
+              &lt;button id="btn-${index}" onclick="processRow(${index})"&gt;Generar y Enviar&lt;/button&gt;
+              &lt;div id="status-${index}" class="status"&gt;&lt;/div&gt;
+            &lt;/td&gt;`;
+          
+          tbody.appendChild(trBody);
+        });
+
+        showGlobalStatus('Datos cargados.', 'success');
+      }
+
+      /**
+       * Llama al backend para procesar una fila específica
+       */
+      function processRow(rowIndex) {
+        const button = document.getElementById(`btn-${rowIndex}`);
+        const statusEl = document.getElementById(`status-${rowIndex}`);
+
+        // Deshabilitar botón y mostrar carga
+        button.disabled = true;
+        statusEl.textContent = 'Procesando...';
+        statusEl.className = 'status loading';
+
+        // Llamar a la función del backend
+        google.script.run
+          .withSuccessHandler(function(response) {
+            // Esto se ejecuta cuando 'generateAndSendPdf' termina
+            statusEl.textContent = response;
+            if (response.startsWith('Error:')) {
+              statusEl.className = 'status error';
+              button.disabled = false; // Reactivar si hay error
+            } else {
+              statusEl.className = 'status success';
+              // Opcional: refrescar toda la tabla para ver el link
+              loadData();
+            }
+          })
+          .withFailureHandler(function(error) {
+            // Esto se ejecuta si la llamada falla
+            statusEl.textContent = `Error: ${error.message}`;
+            statusEl.className = 'status error';
+            button.disabled = false;
+          })
+          .generateAndSendPdf(rowIndex); // 'rowIndex' es el de base 0 del array de datos
+      }
+
+      function showGlobalStatus(message, type) {
+        const statusEl = document.getElementById('status-global');
+        statusEl.textContent = message;
+        statusEl.className = `status ${type}`;
+      }
+
+      function showError(error) {
+        showGlobalStatus(`Error al cargar: ${error.message}`, 'error');
+      }
+
+    &lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+                </div>
+
+                <div id="code-css" class="code-content relative hidden">
+                    <button class="copy-btn absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg text-sm font-medium" data-clipboard-target="code-css-pre">
+                        Copiar Código
+                    </button>
+                    <pre id="code-css-pre"><code class="language-html">&lt;style&gt;
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #f4f5f7;
+    margin: 0;
+    padding: 20px;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  h1 {
+    color: #172b4d;
+    border-bottom: 2px solid #0052cc;
+    padding-bottom: 10px;
+  }
+  p {
+    color: #42526e;
+    font-size: 1.1em;
+  }
+  
+  #refreshButton {
+    background-color: #0052cc;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    margin-bottom: 20px;
+  }
+  #refreshButton:hover {
+    background-color: #0065ff;
+  }
+
+  .table-container {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #dfe1e6;
+    border-radius: 5px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #dfe1e6;
+    vertical-align: middle;
+  }
+  th {
+    background-color: #f4f5f7;
+    color: #5e6c84;
+    font-weight: 600;
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+  tbody tr:hover {
+    background-color: #f9f9fa;
+  }
+  
+  button {
+    background-color: #0065ff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover {
+    background-color: #0052cc;
+  }
+  button:disabled {
+    background-color: #a5adba;
+    cursor: not-allowed;
+  }
+  
+  .action-cell {
+    min-width: 150px;
+  }
+  
+  .status {
+    font-size: 0.9em;
+    margin-top: 5px;
+  }
+  .status.loading {
+    color: #5e6c84;
+  }
+  .status.success {
+    color: #006644;
+    font-weight: bold;
+  }
+  .status.error {
+    color: #bf2600;
+    font-weight: bold;
+  }
+&lt;/style&gt;
+</code></pre>
+                </div>
+            </section>
+            
+            <section id="section-implementacion" class="content-section hidden">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Paso 3: Autoriza e Implementa la App</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    Con el código en su sitio, solo quedan dos pasos: dar permiso al script para que acceda a tus servicios de Google y luego "publicarlo" como una aplicación web privada a la que puedas acceder desde una URL.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="step-card">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">3A. Autorizar el Script</h3>
+                        <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                            <li>En el editor de Apps Script, guarda todos los archivos (icono de disquete).</li>
+                            <li>En el menú "Seleccionar función", elige `doGet` y pulsa <strong>Ejecutar</strong>.</li>
+                            <li>La primera vez, Google te pedirá <strong>Revisar permisos</strong>.</li>
+                            <li>Elige tu cuenta, haz clic en <strong>Avanzado</strong> y luego en <strong>Ir a [Nombre de tu proyecto] (no seguro)</strong>. (Es seguro, ¡es tu propio código!).</li>
+                            <li>Revisa los permisos (pedirá acceso a Docs, Sheets, Drive, Mail) y haz clic en <strong>Permitir</strong>.</li>
+                        </ol>
+                    </div>
+                    <div class="step-card">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">3B. Implementar la Aplicación Web</h3>
+                        <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                            <li>Haz clic en el botón azul <strong>Implementar</strong> (arriba a la derecha).</li>
+                            <li>Selecciona <strong>Nueva implementación</strong>.</li>
+                            <li>Junto a "Seleccionar tipo", elige <strong>Aplicación web</strong>.</li>
+                            <li>En la configuración:
+                                <ul class="list-disc list-inside ml-4 mt-1">
+                                    <li><strong>Ejecutar como:</strong> Elige <strong>Yo</strong>.</li>
+                                    <li><strong>Quién tiene acceso:</strong> Elige <strong>Solo yo</strong>.</li>
+                                </ul>
+                            </li>
+                            <li>Haz clic en <strong>Implementar</strong>.</li>
+                            <li>¡Listo! Apps Script te dará una <strong>URL de la aplicación web</strong>. ¡Cópiala!</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <section id="section-uso" class="content-section hidden">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Paso 4: ¡Usa tu Nueva Herramienta!</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    Este es el resultado. Abre la URL de la aplicación web que copiaste en el paso anterior. Esta es tu interfaz de control privada.
+                </p>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>Abre la URL de la aplicación web en tu navegador.</li>
+                        <li>Verás la tabla de tu Google Sheet cargada en la página.</li>
+                        <li>Haz clic en el botón <strong>"Generar y Enviar"</strong> de cualquier fila.</li>
+                        <li>Espera unos segundos... El estado cambiará a "¡Enviado! Link guardado."</li>
+                        <li>¡Magia! Revisa tu Google Sheet (verás el nuevo link), tu carpeta de Drive (verás el Doc y el PDF) y el email del destinatario (tendrá el PDF adjunto).</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section id="section-conclusion" class="content-section hidden">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Conclusión</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    ¡Felicidades! Has construido una poderosa herramienta de automatización. Has transformado un proceso manual de copiar y pegar en una aplicación web funcional de un solo clic.
+                </p>
+                <p class="text-lg text-gray-600 mb-6">
+                    Puedes adaptar este script para cualquier cosa:
+                </p>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <ul class="list-disc list-inside space-y-2 text-indigo-700">
+                        <li>Generar facturas mensuales.</li>
+                        <li>Enviar diplomas de cursos.</li>
+                        <li>Crear reportes personalizados.</li>
+                        <li>...¡El límite es tu imaginación!</li>
+                    </ul>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('.content-section');
+            const codeTabs = document.querySelectorAll('.code-tab');
+            const codeContents = document.querySelectorAll('.code-content');
+            const copyButtons = document.querySelectorAll('.copy-btn');
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+
+            function setActiveLink(sectionId) {
+                navLinks.forEach(link => {
+                    if (link.dataset.section === sectionId) {
+                        link.classList.add('active');
+                    } else {
+                        link.classList.remove('active');
+                    }
+                });
+            }
+
+            function showSection(sectionId) {
+                sections.forEach(section => {
+                    if (section.id === sectionId) {
+                        section.classList.remove('hidden');
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                });
+                setActiveLink(sectionId);
+                window.scrollTo(0, 0);
+            }
+            
+            function closeMobileMenu() {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const sectionId = link.dataset.section;
+                    showSection(sectionId);
+                    closeMobileMenu();
+                });
+            });
+
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            });
+            
+            overlay.addEventListener('click', closeMobileMenu);
+
+            function setActiveTab(targetId) {
+                codeTabs.forEach(tab => {
+                    if (tab.dataset.target === targetId) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+            }
+
+            codeTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetId = tab.dataset.target;
+                    codeContents.forEach(content => {
+                        if (content.id === targetId) {
+                            content.classList.remove('hidden');
+                        } else {
+                            content.classList.add('hidden');
+                        }
+                    });
+                    setActiveTab(targetId);
+                });
+            });
+
+            copyButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetId = button.dataset.clipboardTarget;
+                    const preElement = document.getElementById(targetId);
+                    const code = preElement.querySelector('code').innerText;
+                    
+                    const el = document.createElement('textarea');
+                    el.value = code;
+                    el.setAttribute('readonly', '');
+                    el.style.position = 'absolute';
+                    el.style.left = '-9999px';
+                    document.body.appendChild(el);
+                    el.select();
+                    
+                    try {
+                        document.execCommand('copy');
+                        button.innerText = '¡Copiado!';
+                        setTimeout(() => {
+                            button.innerText = 'Copiar Código';
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Error al copiar', err);
+                        button.innerText = 'Error';
+                    }
+                    
+                    document.body.removeChild(el);
+                });
+            });
+
+            showSection('section-inicio');
+            setActiveTab('code-gs');
+        });
+    </script>
+</body>
+</html>
